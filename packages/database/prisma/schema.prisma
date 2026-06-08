@@ -1,0 +1,321 @@
+// ─── Prisma Schema ──────────────────────────────────────────────
+// Multi-Tenant Enterprise SaaS Platform
+// Architecture: Shared Database + Tenant ID isolation
+// ─────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Tenant ─────────────────────────────────────────────────────
+
+model Tenant {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String       @unique
+  domain    String?      @unique
+  status    TenantStatus @default(pending)
+  plan      TenantPlan   @default(free)
+  settings  Json         @default("{}")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  users         User[]
+  teams         Team[]
+  roles         Role[]
+  auditLogs     AuditLog[]
+  invitations   Invitation[]
+  notifications Notification[]
+  subscription  Subscription?
+
+  @@index([status])
+  @@index([plan])
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  active
+  suspended
+  pending
+  cancelled
+}
+
+enum TenantPlan {
+  free
+  starter
+  professional
+  enterprise
+}
+
+// ─── User ───────────────────────────────────────────────────────
+
+model User {
+  id              String     @id @default(cuid())
+  tenantId        String     @map("tenant_id")
+  email           String
+  passwordHash    String     @map("password_hash")
+  firstName       String     @map("first_name")
+  lastName        String     @map("last_name")
+  role            UserRole   @default(employee)
+  status          UserStatus @default(pending)
+  avatarUrl       String?    @map("avatar_url")
+  emailVerifiedAt DateTime?  @map("email_verified_at")
+  lastLoginAt     DateTime?  @map("last_login_at")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @updatedAt @map("updated_at")
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teamMembers   TeamMember[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  refreshTokens RefreshToken[]
+  ledTeams      Team[]         @relation("TeamLead")
+
+  @@unique([email, tenantId])
+  @@index([tenantId])
+  @@index([email])
+  @@index([tenantId, role])
+  @@index([tenantId, status])
+  @@map("users")
+}
+
+enum UserRole {
+  super_admin
+  tenant_admin
+  manager
+  employee
+}
+
+enum UserStatus {
+  active
+  inactive
+  pending
+  suspended
+}
+
+// ─── Refresh Token ──────────────────────────────────────────────
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// ─── Role & Permissions ─────────────────────────────────────────
+
+model Role {
+  id          String   @id @default(cuid())
+  tenantId    String?  @map("tenant_id")
+  name        String
+  description String?
+  permissions Json     @default("[]")
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([name, tenantId])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+// ─── Team ───────────────────────────────────────────────────────
+
+model Team {
+  id          String   @id @default(cuid())
+  tenantId    String   @map("tenant_id")
+  name        String
+  description String?
+  department  String?
+  leadId      String?  @map("lead_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant  Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead    User?        @relation("TeamLead", fields: [leadId], references: [id], onDelete: SetNull)
+  members TeamMember[]
+
+  @@unique([name, tenantId])
+  @@index([tenantId])
+  @@map("teams")
+}
+
+// ─── Team Member ────────────────────────────────────────────────
+
+model TeamMember {
+  id        String         @id @default(cuid())
+  teamId    String         @map("team_id")
+  userId    String         @map("user_id")
+  role      TeamMemberRole @default(member)
+  joinedAt  DateTime       @default(now()) @map("joined_at")
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+enum TeamMemberRole {
+  lead
+  member
+}
+
+// ─── Audit Log ──────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String   @map("tenant_id")
+  userId     String?  @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  changes    Json?
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityType])
+  @@index([tenantId, userId])
+  @@index([tenantId, action])
+  @@map("audit_logs")
+}
+
+// ─── Invitation ─────────────────────────────────────────────────
+
+model Invitation {
+  id         String    @id @default(cuid())
+  tenantId   String    @map("tenant_id")
+  email      String
+  role       UserRole  @default(employee)
+  token      String    @unique
+  invitedBy  String    @map("invited_by")
+  expiresAt  DateTime  @map("expires_at")
+  acceptedAt DateTime? @map("accepted_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([token])
+  @@index([email, tenantId])
+  @@map("invitations")
+}
+
+// ─── Notification ───────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  tenantId  String           @map("tenant_id")
+  userId    String           @map("user_id")
+  type      NotificationType @default(info)
+  title     String
+  message   String
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([tenantId, userId])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  info
+  success
+  warning
+  error
+}
+
+// ─── Subscription ───────────────────────────────────────────────
+
+model Subscription {
+  id               String             @id @default(cuid())
+  tenantId         String             @unique @map("tenant_id")
+  planId           String             @map("plan_id")
+  status           SubscriptionStatus @default(active)
+  currentPeriodStart DateTime         @map("current_period_start")
+  currentPeriodEnd   DateTime         @map("current_period_end")
+  cancelledAt      DateTime?          @map("cancelled_at")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+enum SubscriptionStatus {
+  active
+  past_due
+  cancelled
+  trialing
+}
+
+// ─── Plan ───────────────────────────────────────────────────────
+
+model Plan {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  displayName   String   @map("display_name")
+  description   String?
+  priceMonthly  Int      @map("price_monthly")
+  priceYearly   Int      @map("price_yearly")
+  features      Json     @default("[]")
+  limits        Json     @default("{}")
+  isActive      Boolean  @default(true) @map("is_active")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+// ─── Email Verification Token ───────────────────────────────────
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  type      TokenType
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([token])
+  @@index([email, type])
+  @@map("verification_tokens")
+}
+
+enum TokenType {
+  email_verification
+  password_reset
+}
