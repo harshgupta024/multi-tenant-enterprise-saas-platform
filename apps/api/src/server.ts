@@ -10,7 +10,8 @@ import { contextMiddleware } from './presentation/http/middleware/context.middle
 import { errorMiddleware, notFoundMiddleware } from './presentation/http/middleware/error.middleware.js';
 import healthRoutes from './presentation/http/routes/health.routes.js';
 import authRoutes from './presentation/http/routes/auth.routes.js';
-
+import teamRoutes from './presentation/http/routes/teams.routes.js';
+import userRoutes from './presentation/http/routes/users.routes.js';
 // ─── Create Express App ─────────────────────────────────────────
 
 const app: express.Express = express();
@@ -45,8 +46,8 @@ app.use(contextMiddleware);
 app.use('/api', healthRoutes);
 app.use('/api/auth', authRoutes);
 // app.use('/api/tenants', tenantRoutes);
-// app.use('/api/users', userRoutes);
-// app.use('/api/teams', teamRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/teams', teamRoutes);
 // app.use('/api/audit-logs', auditLogRoutes);
 // app.use('/api/notifications', notificationRoutes);
 // app.use('/api/dashboard', dashboardRoutes);
