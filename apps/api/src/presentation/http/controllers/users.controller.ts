@@ -3,7 +3,7 @@ import { User, UpdateUserRequest } from '@shared/types';
 import { getTenantId, getUserId } from '../../../context/index.js';
 
 // In-memory mock data for users
-let mockUsers: User[] = [
+export const mockUsers: User[] = [
   {
     id: 'mock-user-1',
     tenantId: 'mock-tenant-id',

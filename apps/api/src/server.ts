@@ -12,6 +12,8 @@ import healthRoutes from './presentation/http/routes/health.routes.js';
 import authRoutes from './presentation/http/routes/auth.routes.js';
 import teamRoutes from './presentation/http/routes/teams.routes.js';
 import userRoutes from './presentation/http/routes/users.routes.js';
+import invitationRoutes from './presentation/http/routes/invitations.routes.js';
+import auditRoutes from './presentation/http/routes/audit.routes.js';
 // ─── Create Express App ─────────────────────────────────────────
 
 const app: express.Express = express();
@@ -48,7 +50,8 @@ app.use('/api/auth', authRoutes);
 // app.use('/api/tenants', tenantRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/teams', teamRoutes);
-// app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/invitations', invitationRoutes);
+app.use('/api/audit-logs', auditRoutes);
 // app.use('/api/notifications', notificationRoutes);
 // app.use('/api/dashboard', dashboardRoutes);
 
