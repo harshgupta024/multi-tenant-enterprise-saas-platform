@@ -9,6 +9,7 @@ import logger from './infrastructure/logging/logger.js';
 import { contextMiddleware } from './presentation/http/middleware/context.middleware.js';
 import { errorMiddleware, notFoundMiddleware } from './presentation/http/middleware/error.middleware.js';
 import healthRoutes from './presentation/http/routes/health.routes.js';
+import authRoutes from './presentation/http/routes/auth.routes.js';
 
 // ─── Create Express App ─────────────────────────────────────────
 
@@ -42,9 +43,7 @@ app.use(contextMiddleware);
 // ─── Routes ─────────────────────────────────────────────────────
 
 app.use('/api', healthRoutes);
-
-// Placeholder for future route registrations:
-// app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 // app.use('/api/tenants', tenantRoutes);
 // app.use('/api/users', userRoutes);
 // app.use('/api/teams', teamRoutes);
