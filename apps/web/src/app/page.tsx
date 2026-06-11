@@ -92,7 +92,7 @@ export default function Home() {
               API Health Server
             </a>
             <a
-              href="#demo"
+              href="/dashboard"
               className="px-4 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-600/30 transition-all active:scale-[0.98]"
             >
               Launch Demo
